@@ -45,14 +45,14 @@ $arSupportedLanguages = [
         'te' => 'Telugu',
         'ml' => 'Malayalam',
     ],
-    'amanta' =>  [
+    'amanta' => [
         'en' => 'English',
         'ta' => 'Tamil',
         'hi' => 'Hindi',
         'te' => 'Telugu',
         'ml' => 'Malayalam',
     ],
-    'purnimanta' =>  [
+    'purnimanta' => [
         'en' => 'English',
         'ta' => 'Tamil',
         'hi' => 'Hindi',
@@ -66,15 +66,15 @@ $arSupportedLanguages = [
     'hijri' => [
         'en' => 'English',
     ],
-    'gujarati' =>  [
+    'gujarati' => [
         'en' => 'English',
         'gu' => 'Gujarati',
     ],
-    'bengali' =>  [
+    'bengali' => [
         'en' => 'English',
         'bn' => 'Bengali',
     ],
-    'lunar' =>  [
+    'lunar' => [
         'en' => 'English',
         'ta' => 'Tamil',
         'hi' => 'Hindi',

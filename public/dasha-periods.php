@@ -96,7 +96,6 @@ if ($submit) {
             ];
         }
         $kundliResult['dashaPeriods'] = $dashaPeriodResult;
-
     } catch (ValidationException $e) {
         $errors = $e->getValidationErrors();
     } catch (QuotaExceededException $e) {

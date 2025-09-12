@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Prokerala\Api\Astrology\Location;
+use Prokerala\Api\Astrology\Service\MangalDosha;
 use Prokerala\Common\Api\Exception\AuthenticationException;
 use Prokerala\Common\Api\Exception\Exception;
 use Prokerala\Common\Api\Exception\QuotaExceededException;
@@ -64,7 +65,7 @@ if ($submit) {
 
         $advanced = 'advanced' === $result_type;
 
-        $method = new \Prokerala\Api\Astrology\Service\MangalDosha($client);
+        $method = new MangalDosha($client);
         $method->setAyanamsa($ayanamsa);
         $result = $method->process($location, $datetime, $advanced, $la);
 
