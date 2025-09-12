@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <h2 class="text-white mb-5">
     <?php if (!empty($result)): ?>
-        <title><?=$calculatorName?> | Numerology Calculator</title>
+        <title><?=$calculatorName?> | Numerology Calculator | Astrology API Demo - Prokerala Astrology</title>
     <?php else: ?>
-        <title>Numerology Calculator | API Demo</title>
+        <title>Numerology Calculator | Astrology API Demo - Prokerala Astrology</title>
     <?php endif; ?>
     <?php include 'common/style.tpl.php'; ?>
     <link rel="stylesheet" href="<?=DEMO_BASE_URL?>/build/style.css">

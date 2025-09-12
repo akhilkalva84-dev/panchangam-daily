@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <title>Tara Bala Astrology API Demo</title>
+    <title>Tara Bala | Astrology API Demo - Prokerala Astrology</title>
     <?php use Prokerala\Api\Astrology\Result\Panchang\TaraBala as TaraBalaResult;
 
     include 'common/style.tpl.php'; ?>
