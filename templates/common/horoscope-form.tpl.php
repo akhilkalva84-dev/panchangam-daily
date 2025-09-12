@@ -11,7 +11,7 @@
 <div class="form-group row">
     <label class="col-sm-3 col-md-4 col-form-label  text-md-right text-xs-left">Date: </label>
     <div class="col-sm-9 col-md-6 ">
-        <input type='datetime-local' name="datetime" class="form-control form-control-lg rounded-1" required="required" value="<?= $datetime->format('Y-m-d\TH:i')?>" min="<?= $time_now->modify('-1 day')->setTime(0,0,0)->format('Y-m-d\TH:i')?>" max="<?= $datetime->modify('+1 day')->setTime(23,59,0)->format('Y-m-d\TH:i')?>"/>
+        <input type='datetime-local' name="datetime" class="form-control form-control-lg rounded-1" required="required" value="<?= $datetime->format('Y-m-d\TH:i')?>" min="<?= $time_now->modify('-1 day')->setTime(0,0,0)->format('Y-m-d\TH:i')?>" max="<?= $time_now->modify('+1 day')->setTime(23,59,0)->format('Y-m-d\TH:i')?>"/>
     </div>
 </div>
 
