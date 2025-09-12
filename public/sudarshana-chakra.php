@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 use Prokerala\Api\Astrology\Location;
-use Prokerala\Api\Astrology\Service\AuspiciousYoga;
+use Prokerala\Api\Astrology\Service\SudharshanachakraChart;
 use Prokerala\Common\Api\Exception\AuthenticationException;
 use Prokerala\Common\Api\Exception\Exception;
 use Prokerala\Common\Api\Exception\QuotaExceededException;
@@ -58,7 +58,7 @@ if ($submit) {
             new DateTimeImmutable('-1 day', $tz),
             new DateTimeImmutable('+1 day', $tz),
         );
-        $method = new \Prokerala\Api\Astrology\Service\SudarshanaChakra($client);
+        $method = new SudharshanachakraChart($client);
         $method->setAyanamsa($ayanamsa);
         $chart = $method->process($location, $datetime, $la);
     } catch (ValidationException $e) {
