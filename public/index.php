@@ -6,6 +6,7 @@ $arGroupCalculators = [
     'Numerology & Daily Horoscope' => [
         'numerology',
         'daily-horoscope',
+        'love-horoscope',
     ],
     'Daily Panchang' => [
         'panchang',

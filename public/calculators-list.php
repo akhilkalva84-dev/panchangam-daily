@@ -215,7 +215,13 @@ $samples = [
         'image' => '/assets/img/icon/daily-horoscope.png',
         'title' => 'Daily Horoscope',
         'url' => DEMO_BASE_URL . '/daily-horoscope.php',
-        'docs' => 'daily-horoscope',
+        'docs' => 'horoscope-daily-advanced',
+    ],
+    'love-horoscope' => [
+        'image' => '/assets/img/icon/synastry.png',
+        'title' => 'Daily Love Horoscope',
+        'url' => DEMO_BASE_URL . '/love-horoscope.php',
+        'docs' => 'horoscope-daily-love-compatibility',
     ],
     'planet-relationship' => [
         'image' => '/assets/img/icon/dasha-periods.png',
