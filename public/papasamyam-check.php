@@ -12,6 +12,7 @@ use Prokerala\Common\Api\Exception\RateLimitExceededException;
 use Prokerala\Common\Api\Exception\ValidationException;
 
 require __DIR__ . '/bootstrap.php';
+require __DIR__ . '/datelimiter.php';
 
 $time_now = new DateTimeImmutable();
 
@@ -89,6 +90,20 @@ $arSupportedLanguages = [
 
 if ($submit) {
     try {
+        validateDateTime(
+            $girl_input['datetime'],
+            $girl_tz,
+            new DateTimeImmutable('-1 day', $girl_tz),
+            new DateTimeImmutable('+1 day', $girl_tz),
+        );
+
+        validateDateTime(
+            $boy_input['datetime'],
+            $boy_tz,
+            new DateTimeImmutable('-1 day', $boy_tz),
+            new DateTimeImmutable('+1 day', $boy_tz),
+        );
+
         $porutham = new PapaSamyamCheck($client);
         $porutham->setAyanamsa($ayanamsa);
         $result = $porutham->process($girl_profile, $boy_profile, $la);

@@ -13,8 +13,10 @@ use Prokerala\Common\Api\Exception\RateLimitExceededException;
 use Prokerala\Common\Api\Exception\ValidationException;
 
 require __DIR__ . '/bootstrap.php';
+require __DIR__ . '/datelimiter.php';
 
 $sample_name = 'composite-chart';
+$time_now = new DateTimeImmutable();
 
 $primary_latitude = 19.0821978;
 $primary_longitude = 72.7411014;
@@ -92,7 +94,23 @@ $apiCreditUsed = 0;
 if ($submit) {
     try {
         $method = new CompositeChart($client);
-
+        validateDateTime(
+            $primaryDatetime,
+            $partner_a_timezone,
+            new DateTimeImmutable('-1 day', $partner_a_timezone),
+            new DateTimeImmutable('+1 day', $partner_a_timezone)
+        );
+        validateDateTime(
+            $secondaryDatetime,
+            $partner_b_timezone,
+            new DateTimeImmutable('-1 day', $partner_b_timezone),
+            new DateTimeImmutable('+1 day', $partner_b_timezone)
+        );
+        validateDate(
+            $_POST['transit_datetime'],
+            new DateTimeImmutable('-1 day'),
+            new DateTimeImmutable('+1 day'),
+        );
         $chart = $method->process(
             $primaryBirthLocation,
             $primaryBirthTime,

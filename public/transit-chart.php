@@ -13,12 +13,14 @@ use Prokerala\Common\Api\Exception\RateLimitExceededException;
 use Prokerala\Common\Api\Exception\ValidationException;
 
 require __DIR__ . '/bootstrap.php';
+require __DIR__ . '/datelimiter.php';
 
 $sample_name = 'transit-chart';
 
 $transitDatetime = new DateTimeImmutable('now', new DateTimeZone('Asia/Kolkata'));
 $birthTime = $transitDatetime->modify('-18 years')->format('c');
 $transitDatetime = $transitDatetime->format('c');
+$time_now = new DateTimeImmutable();
 
 $latitude = 19.0821978; // Mumbai
 $longitude = 72.7411014;
@@ -72,6 +74,13 @@ $apiCreditUsed = 0;
 
 if ($submit) {
     try {
+        validateDateTime(
+            $birthTime,
+            $location->getTimeZone(),
+            new DateTimeImmutable('-1 day', $tz),
+            new DateTimeImmutable('+1 day', $tz)
+        );
+
         $method = new TransitChart($client);
         $chart = $method->process(
             $location,

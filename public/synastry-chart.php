@@ -13,8 +13,10 @@ use Prokerala\Common\Api\Exception\RateLimitExceededException;
 use Prokerala\Common\Api\Exception\ValidationException;
 
 require __DIR__ . '/bootstrap.php';
+require __DIR__ . '/datelimiter.php';
 
 $sample_name = 'synastry-chart';
+$time_now = new DateTimeImmutable('now');
 
 $primary_latitude = 19.0821978;
 $primary_longitude = 72.7411014;
@@ -83,6 +85,20 @@ $apiCreditUsed = 0;
 
 if ($submit) {
     try {
+        validateDateTime(
+            $primaryDatetime,
+            $partner_a_timezone,
+            new DateTimeImmutable('-1 day', $partner_a_timezone),
+            new DateTimeImmutable('+1 day', $partner_a_timezone)
+        );
+
+        validateDateTime(
+            $secondaryDatetime,
+            $partner_b_timezone,
+            new DateTimeImmutable('-1 day', $partner_b_timezone),
+            new DateTimeImmutable('+1 day', $partner_b_timezone)
+        );
+
         $method = new SynastryChart($client);
 
         $chart = $method->process(

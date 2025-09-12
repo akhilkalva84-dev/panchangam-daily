@@ -11,6 +11,7 @@ use Prokerala\Common\Api\Exception\RateLimitExceededException;
 use Prokerala\Common\Api\Exception\ValidationException;
 
 require __DIR__ . '/bootstrap.php';
+require __DIR__ . '/datelimiter.php';
 
 $time_now = new DateTimeImmutable();
 
@@ -55,6 +56,11 @@ $arData = [];
 
 if ($submit) {
     try {
+        validateDate(
+            $input['datetime'],
+            new DateTimeImmutable('-1 day',$tz),
+            new DateTimeImmutable('+1 day',$tz),
+        );
         $method = new TaraBala($client);
         $method->setAyanamsa($ayanamsa);
         $method->setTimeZone($tz);

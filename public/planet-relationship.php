@@ -12,6 +12,7 @@ use Prokerala\Common\Api\Exception\RateLimitExceededException;
 use Prokerala\Common\Api\Exception\ValidationException;
 
 require __DIR__ . '/bootstrap.php';
+require __DIR__ . '/datelimiter.php';
 
 $time_now = new DateTimeImmutable();
 $planet_order = [
@@ -63,6 +64,13 @@ $errors = [];
 
 if ($submit) {
     try {
+        validateDateTime(
+            $input['datetime'],
+            $tz,
+            new DateTimeImmutable('-1 day', $tz),
+            new DateTimeImmutable('+1 day', $tz),
+        );
+
         $method = new PlanetRelationship($client);
         $method->setAyanamsa($ayanamsa);
         $result = $method->process($location, $datetime, $la);
