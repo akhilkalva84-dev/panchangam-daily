@@ -4,7 +4,7 @@
         <div class="form-group row">
             <label class="col-md-4 pr-md-0 col-form-label">Date Of Birth:</label>
             <div class="col-md-8 pl-md-0">
-                <input type='datetime-local' name="partner_a_dob" class="form-control form-control-lg rounded-1"  required="required" value="<?= $primaryBirthTime->format('Y-m-d\TH:i')?>"/>
+                <input type='datetime-local' name="partner_a_dob" class="form-control form-control-lg rounded-1"  required="required" value="<?= $primaryBirthTime->format('Y-m-d\TH:i')?>" min="<?= $time_now->modify('-1 days')->setTime(0,0,0)->format('Y-m-d\TH:i')?>" max="<?= $time_now->modify('+1 days')->setTime(23,59,0)->format('Y-m-d\TH:i')?>"/>
             </div>
         </div>
         <div class="form-group row text-small">
@@ -30,7 +30,7 @@
         <div class="form-group row">
             <label class="col-md-4 pr-md-0 col-form-label">Date Of Birth:</label>
             <div class="col-md-8 pl-md-0">
-                <input type='datetime-local' name="partner_b_dob" class="form-control form-control-lg rounded-1"  required="required" value="<?= $secondaryBirthTime->format('Y-m-d\TH:i')?>"/>
+                <input type='datetime-local' name="partner_b_dob" class="form-control form-control-lg rounded-1"  required="required" value="<?=$secondaryBirthTime->format('Y-m-d\TH:i')?>" min="<?=$time_now->modify('-1 days')->setTime(0,0,0)->format('Y-m-d\TH:i')?>" max="<?=$time_now->modify('+1 days')->setTime(23,59,0)->format('Y-m-d\TH:i')?>"/>
             </div>
         </div>
         <div class="form-group row text-small">
@@ -58,7 +58,7 @@
         <div class="form-group row">
             <label class="col-sm-3 col-md-4 col-form-label text-md-right text-xs-left">Transit Date:</label>
             <div class="col-sm-9 col-md-6">
-                <input type='date' name="transit_datetime" class="form-control form-control-lg rounded-1"  required="required" value="<?= $transitDateTime->format('Y-m-d')?>"/>
+                <input type='date' name="transit_datetime" class="form-control form-control-lg rounded-1"  required="required" value="<?= $transitDateTime->format('Y-m-d')?>" min="<?= $transitDateTime->modify('-1 days')->format('Y-m-d')?>" max="<?= $transitDateTime->modify('+1 days')->format('Y-m-d')?>"/>
             </div>
         </div>
         <div id="secondaryLocationField" class="form-group row">

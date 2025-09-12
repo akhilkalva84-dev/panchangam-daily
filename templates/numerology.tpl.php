@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <h2 class="text-white mb-5">
     <?php if (!empty($result)): ?>
-        <title><?=$calculatorName?> | Numerology Calculator</title>
+        <title><?=$calculatorName?> | Numerology Calculator | Astrology API Demo - Prokerala Astrology</title>
     <?php else: ?>
-        <title>Numerology Calculator | API Demo</title>
+        <title>Numerology Calculator | Astrology API Demo - Prokerala Astrology</title>
     <?php endif; ?>
     <?php include 'common/style.tpl.php'; ?>
     <link rel="stylesheet" href="<?=DEMO_BASE_URL?>/build/style.css">
@@ -72,7 +72,7 @@
                         <div class="form-group row">
                             <label class="col-sm-3 col-md-4 col-form-label  text-md-right text-xs-left">Date of Birth: </label>
                             <div class="col-sm-9 col-md-6 ">
-                                <input type='date' name="date" value="<?=$datetime->format('Y-m-d')?>" class="form-control form-control-lg rounded-1" required="required"/>
+                                <input type='date' name="date" value="<?=$datetime->format('Y-m-d')?>" min="<?=$time_now->modify('-1 day')->format('Y-m-d')?>" max="<?=$time_now->modify('+1 day')->format('Y-m-d')?>" class="form-control form-control-lg rounded-1" required="required"/>
                             </div>
                         </div>
                         <div class="form-group row">

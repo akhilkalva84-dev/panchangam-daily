@@ -13,8 +13,10 @@ use Prokerala\Common\Api\Exception\RateLimitExceededException;
 use Prokerala\Common\Api\Exception\ValidationException;
 
 require __DIR__ . '/bootstrap.php';
+require __DIR__ . '/datelimiter.php';
 
 $sample_name = 'synastry-chart';
+$time_now = new DateTimeImmutable('now');
 
 $primary_latitude = 19.0821978;
 $primary_longitude = 72.7411014;
@@ -24,8 +26,8 @@ $secondary_longitude = 139.692;
 $primaryCoordinates = "{$primary_latitude},{$primary_longitude}"; // Mumbai
 $secondaryCoordinates = "{$secondary_latitude},{$secondary_longitude}"; // Tokyo
 
-$primaryDatetime = (new DateTimeImmutable('1989-10-25', new DateTimeZone('Asia/Kolkata')))->format('c');
-$secondaryDatetime = (new DateTimeImmutable('1994-01-18', new DateTimeZone('Asia/Tokyo')))->format('c');
+$primaryDatetime = (new DateTimeImmutable('now', new DateTimeZone('Asia/Kolkata')))->format('c');
+$secondaryDatetime = (new DateTimeImmutable('now', new DateTimeZone('Asia/Tokyo')))->format('c');
 
 $houseSystem = 'placidus';
 $orb = 'default';
@@ -83,6 +85,20 @@ $apiCreditUsed = 0;
 
 if ($submit) {
     try {
+        validateDateTime(
+            $primaryDatetime,
+            $partner_a_timezone,
+            new DateTimeImmutable('-1 day', $partner_a_timezone),
+            new DateTimeImmutable('+1 day', $partner_a_timezone)
+        );
+
+        validateDateTime(
+            $secondaryDatetime,
+            $partner_b_timezone,
+            new DateTimeImmutable('-1 day', $partner_b_timezone),
+            new DateTimeImmutable('+1 day', $partner_b_timezone)
+        );
+
         $method = new SynastryChart($client);
 
         $chart = $method->process(

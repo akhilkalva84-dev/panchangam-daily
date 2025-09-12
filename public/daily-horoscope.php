@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use Prokerala\Api\Horoscope\Result\DailyHoroscope;
-use Prokerala\Api\Horoscope\Service\DailyPrediction;
+use Prokerala\Api\Horoscope\Result\DailyHoroscopeAdvancedResponse;
+use Prokerala\Api\Horoscope\Service\DailyPredictionAdvanced;
 use Prokerala\Common\Api\Exception\AuthenticationException;
 use Prokerala\Common\Api\Exception\Exception;
 use Prokerala\Common\Api\Exception\QuotaExceededException;
@@ -20,40 +20,41 @@ $submit = $_POST['submit'] ?? 0;
 
 $sample_name = 'daily-horoscope';
 
+$arSign = ['aries', 'taurus', 'gemini', 'cancer', 'leo', 'virgo', 'libra', 'scorpio', 'sagittarius', 'capricorn', 'aquarius', 'pisces'];
+$signSymbols = ['aries' => '♈', 'taurus' => '♊', 'gemini' => '♌', 'cancer' => '♎', 'leo' => '♐', 'virgo' => '♒', 'libra' => '♉', 'scorpio' => '♋', 'sagittarius' => '♍', 'capricorn' => '♏', 'aquarius' => '♑', 'pisces' => '♓'];
+foreach ($arSign as $value) {
+    $arSignData[$value] = $signSymbols[$value] . '  ' . ucfirst($value);
+}
+
 $timezone = 'Asia/Kolkata';
 $tz = new DateTimeZone($timezone);
 $datetime = new DateTimeImmutable('now', $tz);
-$signs = [
-    'aries' => 'Aries',
-    'taurus' => 'Taurus',
-    'gemini' => 'Gemini ',
-    'cancer' => 'Cancer ',
-    'leo' => 'Leo',
-    'virgo' => 'Virgo',
-    'libra' => 'Libra',
-    'scorpio' => 'Scorpio',
-    'sagittarius' => 'Sagittarius',
-    'capricorn' => 'Capricorn ',
-    'aquarius' => 'Aquarius',
-    'pisces' => 'Pisces',
-];
-$day = $_GET['day'] ?? 'today';
-$selectedSign = $_GET['sign'] ?? null;
-$tomorrow = new DateTimeImmutable('+1 day', $tz);
-$yesterday = new DateTimeImmutable('-1 day', $tz);
 
+$selectedSign = $_POST['sign'] ?? null;
+$selectedType = $_POST['type'] ?? null;
 $errors = [];
 $result = null;
-if ($selectedSign) {
+if ($submit) {
     try {
-        $horoscopeClass = new DailyPrediction($client);
+        $horoscopeClass = new DailyPredictionAdvanced($client);
         $cache = new FilesystemAdapter();
-        $result = $cache->get("daily_horoscope_{$selectedSign}", function (ItemInterface $item) use ($horoscopeClass, $datetime, $selectedSign): DailyHoroscope {
+        $result = $cache->get("daily_horoscope_{$selectedSign}_{$selectedType}", function (ItemInterface $item) use ($horoscopeClass, $datetime, $selectedSign, $selectedType): DailyHoroscopeAdvancedResponse {
             $item->expiresAfter(28800);
-            return $horoscopeClass->process($datetime, $selectedSign);
-        });
 
-        $signName = $result->getDailyHoroscopePrediction()->getSignName();
+            return $horoscopeClass->process($datetime, $selectedSign, $selectedType);
+        });
+        $dailyPredictions = $result->getDailyPredictions();
+        foreach ($dailyPredictions as $dailyPrediction) {
+            if (strtolower($dailyPrediction->getSign()->getName()) === $selectedSign) {
+                $resultPrediction = $dailyPrediction;
+            }
+        }
+
+        foreach ($resultPrediction->getPredictions() as $prediction) {
+            if (strtolower($prediction->getType()) === strtolower($selectedType)) {
+                $predictionList = $prediction;
+            }
+        }
     } catch (ValidationException $e) {
         $errors = $e->getValidationErrors();
     } catch (QuotaExceededException $e) {

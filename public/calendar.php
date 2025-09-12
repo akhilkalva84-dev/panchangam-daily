@@ -10,6 +10,7 @@ use Prokerala\Common\Api\Exception\RateLimitExceededException;
 use Prokerala\Common\Api\Exception\ValidationException;
 
 require __DIR__ . '/bootstrap.php';
+require __DIR__ . '/datelimiter.php';
 
 $time_now = new DateTimeImmutable();
 
@@ -44,14 +45,14 @@ $arSupportedLanguages = [
         'te' => 'Telugu',
         'ml' => 'Malayalam',
     ],
-    'amanta' =>  [
+    'amanta' => [
         'en' => 'English',
         'ta' => 'Tamil',
         'hi' => 'Hindi',
         'te' => 'Telugu',
         'ml' => 'Malayalam',
     ],
-    'purnimanta' =>  [
+    'purnimanta' => [
         'en' => 'English',
         'ta' => 'Tamil',
         'hi' => 'Hindi',
@@ -65,15 +66,15 @@ $arSupportedLanguages = [
     'hijri' => [
         'en' => 'English',
     ],
-    'gujarati' =>  [
+    'gujarati' => [
         'en' => 'English',
         'gu' => 'Gujarati',
     ],
-    'bengali' =>  [
+    'bengali' => [
         'en' => 'English',
         'bn' => 'Bengali',
     ],
-    'lunar' =>  [
+    'lunar' => [
         'en' => 'English',
         'ta' => 'Tamil',
         'hi' => 'Hindi',
@@ -104,9 +105,11 @@ $dateMaximum = $dateMinimum->modify('+6 days');
 
 if ($submit) {
     try {
-        if ($date < $dateMinimum || $date > $dateMaximum) {
-            throw new Exception('Enter date between '. $dateMinimum->format('Y-m-d') .' and '. $dateMaximum->format('Y-m-d'));
-        }
+        validateDate(
+            $input['date'],
+            new DateTimeImmutable('-1 day'),
+            new DateTimeImmutable('+1 day'),
+        );
         $method = new CalendarDate($client);
         $result = $method->process($calendar, $date, $la);
     } catch (ValidationException $e) {

@@ -3,8 +3,8 @@
 declare(strict_types=1);
 
 use Prokerala\Api\Astrology\Location;
-use Prokerala\Api\Astrology\Western\Service\Charts\CompositeChart;
 use Prokerala\Api\Astrology\Western\Service\AspectCharts\CompositeChart as CompositeAspectChart;
+use Prokerala\Api\Astrology\Western\Service\Charts\CompositeChart;
 use Prokerala\Api\Astrology\Western\Service\PlanetPositions\CompositeChart as CompositePlanetPositions;
 use Prokerala\Common\Api\Exception\AuthenticationException;
 use Prokerala\Common\Api\Exception\Exception;
@@ -13,8 +13,10 @@ use Prokerala\Common\Api\Exception\RateLimitExceededException;
 use Prokerala\Common\Api\Exception\ValidationException;
 
 require __DIR__ . '/bootstrap.php';
+require __DIR__ . '/datelimiter.php';
 
 $sample_name = 'composite-chart';
+$time_now = new DateTimeImmutable();
 
 $primary_latitude = 19.0821978;
 $primary_longitude = 72.7411014;
@@ -27,9 +29,9 @@ $primaryCoordinates = "{$primary_latitude},{$primary_longitude}"; // Mumbai
 $secondaryCoordinates = "{$secondary_latitude},{$secondary_longitude}"; // Tokyo
 $currentCoordinates = "{$current_latitude},{$current_longitude}"; // New Delhi
 
-$primaryDatetime = (new DateTimeImmutable("1989-10-25", new DateTimeZone('Asia/Kolkata')))->format('c');
-$secondaryDatetime = (new DateTimeImmutable("1994-01-18", new DateTimeZone('Asia/Tokyo')))->format('c');
-$transitDateTime = (new DateTimeImmutable("now", new DateTimeZone('Asia/Kolkata')))->format('c');
+$primaryDatetime = (new DateTimeImmutable('now', new DateTimeZone('Asia/Kolkata')))->format('c');
+$secondaryDatetime = (new DateTimeImmutable('now', new DateTimeZone('Asia/Tokyo')))->format('c');
+$transitDateTime = (new DateTimeImmutable('now', new DateTimeZone('Asia/Kolkata')))->format('c');
 
 $houseSystem = 'placidus';
 $orb = 'default';
@@ -92,7 +94,23 @@ $apiCreditUsed = 0;
 if ($submit) {
     try {
         $method = new CompositeChart($client);
-
+        validateDateTime(
+            $primaryDatetime,
+            $partner_a_timezone,
+            new DateTimeImmutable('-1 day', $partner_a_timezone),
+            new DateTimeImmutable('+1 day', $partner_a_timezone)
+        );
+        validateDateTime(
+            $secondaryDatetime,
+            $partner_b_timezone,
+            new DateTimeImmutable('-1 day', $partner_b_timezone),
+            new DateTimeImmutable('+1 day', $partner_b_timezone)
+        );
+        validateDate(
+            $_POST['transit_datetime'],
+            new DateTimeImmutable('-1 day'),
+            new DateTimeImmutable('+1 day'),
+        );
         $chart = $method->process(
             $primaryBirthLocation,
             $primaryBirthTime,
@@ -149,7 +167,6 @@ if ($submit) {
         $angles = $result->getCompositeAngles();
         $aspects = $result->getCompositeAspects();
         $apiCreditUsed += $client->getCreditUsed();
-
     } catch (ValidationException $e) {
         $errors = $e->getValidationErrors();
     } catch (QuotaExceededException $e) {

@@ -40,9 +40,10 @@ use Prokerala\Common\Api\Exception\RateLimitExceededException;
 use Prokerala\Common\Api\Exception\ValidationException;
 
 require __DIR__ . '/bootstrap.php';
+require __DIR__ . '/datelimiter.php';
 
 $calculators = [];
-
+$time_now = new DateTimeImmutable();
 $submit = $_POST['submit'] ?? 0;
 $ayanamsa = 1;
 $sample_name = 'numerology';
@@ -148,6 +149,12 @@ $calculatorParams = [
 $selectedCalculator = null;
 if ($submit) {
     try {
+        validateDateTime(
+            $_POST['date'],
+            $tz,
+            new DateTimeImmutable('-1 day', $tz),
+            new DateTimeImmutable('+1 day', $tz)
+        );
         $firstName = isset($_POST['firstName']) ? $_POST['firstName'] : null;
         $middleName = isset($_POST['middleName']) ? $_POST['middleName'] :null;
         $lastName = isset($_POST['lastName']) ? $_POST['lastName'] :null;

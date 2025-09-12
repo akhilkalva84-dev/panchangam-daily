@@ -12,6 +12,7 @@ use Prokerala\Common\Api\Exception\RateLimitExceededException;
 use Prokerala\Common\Api\Exception\ValidationException;
 
 require __DIR__ . '/bootstrap.php';
+require __DIR__ . '/datelimiter.php';
 
 $time_now = new DateTimeImmutable();
 
@@ -79,6 +80,20 @@ $errors = [];
 
 if ($submit) {
     try {
+        validateDateTime(
+            $girl_input['datetime'],
+            $girl_tz,
+            new DateTimeImmutable('-1 day', $girl_tz),
+            new DateTimeImmutable('+1 day', $girl_tz),
+        );
+
+        validateDateTime(
+            $boy_input['datetime'],
+            $boy_tz,
+            new DateTimeImmutable('-1 day', $boy_tz),
+            new DateTimeImmutable('+1 day', $boy_tz),
+        );
+
         $advanced = false;
         if ('advanced' === $result_type) {
             $advanced = true;

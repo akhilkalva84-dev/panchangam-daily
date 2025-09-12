@@ -11,6 +11,7 @@ use Prokerala\Common\Api\Exception\RateLimitExceededException;
 use Prokerala\Common\Api\Exception\ValidationException;
 
 require __DIR__ . '/bootstrap.php';
+require __DIR__ . '/datelimiter.php';
 
 $time_now = new DateTimeImmutable();
 $input = [
@@ -54,6 +55,13 @@ $errors = [];
 
 if ($submit) {
     try {
+        validateDateTime(
+            $input['datetime'],
+            $tz,
+            new DateTimeImmutable('-1 day', $tz),
+            new DateTimeImmutable('+1 day', $tz)
+        );
+
         $advanced = 'advanced' === $result_type ? true : false;
 
         $method = new Kundli($client);

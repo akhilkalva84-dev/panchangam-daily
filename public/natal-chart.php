@@ -13,10 +13,12 @@ use Prokerala\Common\Api\Exception\RateLimitExceededException;
 use Prokerala\Common\Api\Exception\ValidationException;
 
 require __DIR__ . '/bootstrap.php';
+require __DIR__ . '/datelimiter.php';
 
 $sample_name = 'natal-chart';
 
 $datetime = (new DateTimeImmutable('now', new DateTimeZone('Asia/Kolkata')))->format('c');
+$time_now = new DateTimeImmutable();
 
 $latitude = 19.0821978;
 $longitude = 72.7411014;
@@ -58,6 +60,12 @@ $apiCreditUsed = 0;
 
 if ($submit) {
     try {
+        validateDateTime(
+            $_POST['datetime'],
+            $tz,
+            new DateTimeImmutable('-1 day', $tz),
+            new DateTimeImmutable('+1 day', $tz),
+        );
         $method = new NatalChart($client);
         $chart = $method->process($location, $datetime, $houseSystem, $orb, $birthTimeUnknown, $rectificationChart, $aspectFilter, $la);
         $apiCreditUsed += $client->getCreditUsed();
