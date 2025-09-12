@@ -3,8 +3,8 @@
 declare(strict_types=1);
 
 use Prokerala\Api\Astrology\Location;
-use Prokerala\Api\Astrology\Western\Service\Charts\CompositeChart;
 use Prokerala\Api\Astrology\Western\Service\AspectCharts\CompositeChart as CompositeAspectChart;
+use Prokerala\Api\Astrology\Western\Service\Charts\CompositeChart;
 use Prokerala\Api\Astrology\Western\Service\PlanetPositions\CompositeChart as CompositePlanetPositions;
 use Prokerala\Common\Api\Exception\AuthenticationException;
 use Prokerala\Common\Api\Exception\Exception;
@@ -29,9 +29,9 @@ $primaryCoordinates = "{$primary_latitude},{$primary_longitude}"; // Mumbai
 $secondaryCoordinates = "{$secondary_latitude},{$secondary_longitude}"; // Tokyo
 $currentCoordinates = "{$current_latitude},{$current_longitude}"; // New Delhi
 
-$primaryDatetime = (new DateTimeImmutable("1989-10-25", new DateTimeZone('Asia/Kolkata')))->format('c');
-$secondaryDatetime = (new DateTimeImmutable("1994-01-18", new DateTimeZone('Asia/Tokyo')))->format('c');
-$transitDateTime = (new DateTimeImmutable("now", new DateTimeZone('Asia/Kolkata')))->format('c');
+$primaryDatetime = (new DateTimeImmutable('now', new DateTimeZone('Asia/Kolkata')))->format('c');
+$secondaryDatetime = (new DateTimeImmutable('now', new DateTimeZone('Asia/Tokyo')))->format('c');
+$transitDateTime = (new DateTimeImmutable('now', new DateTimeZone('Asia/Kolkata')))->format('c');
 
 $houseSystem = 'placidus';
 $orb = 'default';
@@ -167,7 +167,6 @@ if ($submit) {
         $angles = $result->getCompositeAngles();
         $aspects = $result->getCompositeAspects();
         $apiCreditUsed += $client->getCreditUsed();
-
     } catch (ValidationException $e) {
         $errors = $e->getValidationErrors();
     } catch (QuotaExceededException $e) {

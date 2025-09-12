@@ -26,8 +26,8 @@ $secondary_longitude = 139.692;
 $primaryCoordinates = "{$primary_latitude},{$primary_longitude}"; // Mumbai
 $secondaryCoordinates = "{$secondary_latitude},{$secondary_longitude}"; // Tokyo
 
-$primaryDatetime = (new DateTimeImmutable('1989-10-25', new DateTimeZone('Asia/Kolkata')))->format('c');
-$secondaryDatetime = (new DateTimeImmutable('1994-01-18', new DateTimeZone('Asia/Tokyo')))->format('c');
+$primaryDatetime = (new DateTimeImmutable('now', new DateTimeZone('Asia/Kolkata')))->format('c');
+$secondaryDatetime = (new DateTimeImmutable('now', new DateTimeZone('Asia/Tokyo')))->format('c');
 
 $houseSystem = 'placidus';
 $orb = 'default';
