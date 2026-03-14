@@ -154,7 +154,7 @@ if ($submit) {
     } catch (ValidationException $e) {
         $errors = $e->getValidationErrors();
     } catch (QuotaExceededException $e) {
-        $errors['message'] = 'ERROR: You have exceeded your quota allocation for the day';
+        $errorsQuota = ['message' => '<p class="">The demo is currently disabled. You may request access to the demo by contacting our support team.</p><p class="">Please note that the demo page does <span class="b">not use credits from your account.</span> You can also download the full source code of this demo from the following link: <a href="https://github.com/prokerala/astrology-api-demo">https://github.com/prokerala/astrology-api-demo</a></p><div class=""><a href="https://api.prokerala.com/account/contact" class="btn btn-sm btn-info b">Request Demo</a></div>'];
     } catch (RateLimitExceededException $e) {
         $errors['message'] = 'ERROR: Rate limit exceeded. Throttle your requests.';
     } catch (AuthenticationException $e) {

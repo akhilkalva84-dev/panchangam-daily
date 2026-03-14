@@ -19,3 +19,16 @@
         </div>
     <?php endforeach; ?>
 <?php endif; ?>
+
+<?php if (!empty($errorsQuota)):?>
+    <?php foreach ($errorsQuota as $key => $error):?>
+        <div class="alert alert-info p-5 b">
+            <?php if ('message' === $key):?>
+                <?=$error?>
+            <?php else:?>
+                <?=$error->title ?? ''; ?>:
+                <?=$error->detail ?? ''?>
+            <?php endif; ?>
+        </div>
+    <?php endforeach; ?>
+<?php endif; ?>
