@@ -1,205 +1,9 @@
-// auto-panchang.js
-// Complete automation:
-// 1. Fetches real data from DrikPanchang (Hyderabad)
-// 2. Generates beautiful HTML widget
-// 3. Pushes to GitHub → Netlify auto-deploys in 30 seconds
-// 4. Runs every midnight via Windows Task Scheduler
-
-const puppeteer = require('puppeteer');
-const Anthropic  = require('@anthropic-ai/sdk');
-const fs        = require('fs');
-const path      = require('path');
-const https     = require('https');
-
-// ════════════════════════════════════════════════
-//  CONFIG
-// ════════════════════════════════════════════════
-const CONFIG = {
-  // Claude API — reads from GitHub Secret or fallback to local value
-  CLAUDE_API_KEY: process.env.CLAUDE_API_KEY,
-
-  // GitHub — reads from GitHub Secret
-  GITHUB_TOKEN:  process.env.GITHUB_TOKEN_SECRET,
-  GITHUB_USER:   'akhilkalva84-dev',
-  GITHUB_REPO:   'panchangam-daily',
-  GITHUB_BRANCH: 'main',
-
-  // Gmail — reads from GitHub Secret or fallback to local value
-  GMAIL_USER:     'akhilkalva84@gmail.com',
-  GMAIL_APP_PASS: process.env.GMAIL_APP_PASS,
-  GMAIL_TO:       'akhilkalva84@gmail.com,niharikasaraswathi99@gmail.com,voiceofviswanatha@gmail.com',
-
-  // Website link to share
-  WEBSITE_URL:    'https://voiceofviswanatha.com/daily-panchangam',
-
-  // Local
-  LOG_FILE:   path.join(__dirname, 'panchang-log.txt'),
-  LOCAL_HTML: path.join(__dirname, 'panchangam-today.html'),
-};
-// ════════════════════════════════════════════════
-
-const anthropic = new Anthropic({ apiKey: CONFIG.CLAUDE_API_KEY });
-
-// ── LOGGING ──────────────────────────────────────
-function log(msg) {
-  const t    = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
-  const line = `[${t}] ${msg}`;
-  console.log(line);
-  try { fs.appendFileSync(CONFIG.LOG_FILE, line + '\n'); } catch(_) {}
-}
-
-// ── GET TODAY IN IST ─────────────────────────────
-function getTodayIST() {
-  const now  = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
-  const dd   = String(now.getDate()).padStart(2, '0');
-  const mm   = String(now.getMonth() + 1).padStart(2, '0');
-  const yyyy = now.getFullYear();
-  const DAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-  const MONS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-  const MNX  = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const nd   = new Date(now); nd.setDate(nd.getDate() + 1);
-  return {
-    dd, mm, yyyy,
-    dateURL:  `${dd}/${mm}/${yyyy}`,
-    dateDisp: `${DAYS[now.getDay()]}, ${MONS[now.getMonth()]} ${now.getDate()}, ${yyyy}`,
-    day:      now.getDate(),
-    month:    MONS[now.getMonth()],
-    weekday:  DAYS[now.getDay()],
-    nextDay:  MNX[nd.getMonth()] + ' ' + nd.getDate(),
-  };
-}
-
-// ── STEP 1: FETCH DRIKPANCHANG ────────────────────
-async function fetchPage(url) {
-  log(`  Fetching: ${url}`);
-  const browser = await puppeteer.launch({
-    headless: 'new',
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
-  });
-  try {
-    const page = await browser.newPage();
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36');
-    await page.goto(url, { waitUntil: 'networkidle2', timeout: 45000 });
-    await new Promise(r => setTimeout(r, 4000));
-    const text = await page.evaluate(() => document.body.innerText);
-    return text.substring(0, 15000);
-  } finally {
-    await browser.close();
-  }
-}
-
-// ── STEP 2: EXTRACT DATA WITH CLAUDE ─────────────
-async function extractData(panchangText, lagnaText, dateInfo) {
-  log('  Sending to Claude AI...');
-  const response = await anthropic.messages.create({
-    model:      'claude-sonnet-4-20250514',
-    max_tokens: 4000,
-    system:     'You are a Panchangam data extractor. Extract data from raw website text scraped from DrikPanchang.com for Hyderabad India. Return ONLY valid JSON — no markdown, no explanation.',
-    messages: [{
-      role: 'user',
-      content: `Extract ALL panchang data for ${dateInfo.dateDisp} Hyderabad India from this text:
-
-=== PANCHANG PAGE ===
-${panchangText}
-
-=== LAGNA PAGE ===
-${lagnaText}
-
-Return ONLY this JSON (fill real values):
-{
-  "panchang": {
-    "vaishakha":"","paksha_full":"","vikram_samvat":"",
-    "day_number":"${dateInfo.day}","month_year":"${dateInfo.month} ${dateInfo.yyyy}","weekday_en":"${dateInfo.weekday}",
-    "sunrise":"","sunset":"","moonrise":"","moonset":"",
-    "tithi":"","tithi_upto":"",
-    "nakshatra":"","nakshatra_upto":"",
-    "yoga":"","yoga_upto":"",
-    "karana1":"","karana1_upto":"","karana2":"","karana2_upto":"",
-    "paksha":"","weekday":"","amanta_month":"","purnimanta_month":"",
-    "moonsign":"","sunsign":"","pravishte":"",
-    "shaka_year":"","shaka_name":"","vikram_year":"","vikram_name":"",
-    "gujarati_year":"","gujarati_name":"",
-    "rahu_kalam":"","yamaganda":"","gulika":"","abhijit_muhurat":"",
-    "tarabalam_till_time":"",
-    "tarabalam_good_nakshatras":[""],
-    "tarabalam_good_next_sunrise":[""]
-  },
-  "lagna":[
-    {"name":"Meena","start_time":"","end_time":"","next_day":false,"pushkara":""},
-    {"name":"Mesha","start_time":"","end_time":"","next_day":false,"pushkara":""},
-    {"name":"Vrishabha","start_time":"","end_time":"","next_day":false,"pushkara":""},
-    {"name":"Mithuna","start_time":"","end_time":"","next_day":false,"pushkara":""},
-    {"name":"Karka","start_time":"","end_time":"","next_day":false,"pushkara":""},
-    {"name":"Simha","start_time":"","end_time":"","next_day":false,"pushkara":""},
-    {"name":"Kanya","start_time":"","end_time":"","next_day":false,"pushkara":""},
-    {"name":"Tula","start_time":"","end_time":"","next_day":false,"pushkara":""},
-    {"name":"Vrishchika","start_time":"","end_time":"","next_day":false,"pushkara":""},
-    {"name":"Dhanu","start_time":"","end_time":"","next_day":true,"pushkara":""},
-    {"name":"Makara","start_time":"","end_time":"","next_day":true,"pushkara":""},
-    {"name":"Kumbha","start_time":"","end_time":"","next_day":true,"pushkara":""}
-  ],
-  "rashifal":[
-    {"name":"Mesha","prediction":""},{"name":"Vrishabha","prediction":""},
-    {"name":"Mithuna","prediction":""},{"name":"Karka","prediction":""},
-    {"name":"Simha","prediction":""},{"name":"Kanya","prediction":""},
-    {"name":"Tula","prediction":""},{"name":"Vrishchika","prediction":""},
-    {"name":"Dhanu","prediction":""},{"name":"Makara","prediction":""},
-    {"name":"Kumbha","prediction":""},{"name":"Meena","prediction":""}
-  ]
-}`
-    }]
-  });
-  const raw   = response.content[0].text.trim();
-  const clean = raw.replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/, '').trim();
-  const data  = JSON.parse(clean);
-
-  // Generate VOV-style Rashifal with dedicated Claude call
-  log('  Generating VOV Rashifal predictions...');
-  const rashiResp = await anthropic.messages.create({
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 2500,
-    system: 'You are an experienced Hindu astrologer writing for Voice of Viswanatha — a devotional Telugu astrology channel. Write Rashifal (daily horoscope) predictions in a warm, spiritual, encouraging tone. 2-3 sentences each covering: dominant energy, practical guidance (career/family/health), and a brief devotional note. Write in simple English with Telugu cultural warmth. Be positive but realistic.',
-    messages: [{
-      role: 'user',
-      content: `Write daily Rashifal predictions for ${dateInfo.dateDisp}.
-Panchang context — Tithi: ${data.panchang.tithi||''}, Nakshatra: ${data.panchang.nakshatra||''}, Yoga: ${data.panchang.yoga||''}, Paksha: ${data.panchang.paksha||''}, Weekday: ${data.panchang.weekday_en||''}.
-Return ONLY this JSON (no markdown, no backticks):
-[{"name":"Mesha","prediction":""},{"name":"Vrishabha","prediction":""},{"name":"Mithuna","prediction":""},{"name":"Karka","prediction":""},{"name":"Simha","prediction":""},{"name":"Kanya","prediction":""},{"name":"Tula","prediction":""},{"name":"Vrishchika","prediction":""},{"name":"Dhanu","prediction":""},{"name":"Makara","prediction":""},{"name":"Kumbha","prediction":""},{"name":"Meena","prediction":""}]`
-    }]
-  });
-  const rRaw   = rashiResp.content[0].text.trim();
-  const rClean = rRaw.replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/, '').trim();
-  data.rashifal = JSON.parse(rClean);
-  return data;
-}
-
-// ── STEP 3: GENERATE HTML ────────────────────────
-function generateHTML(data, dateInfo) {
-  const { panchang, lagna, rashifal } = data;
-  const RE = {Mesha:'♈',Vrishabha:'♉',Mithuna:'♊',Karka:'♋',Simha:'♌',Kanya:'♍',Tula:'♎',Vrishchika:'♏',Dhanu:'♐',Makara:'♑',Kumbha:'♒',Meena:'♓'};
-  const LC = {Meena:'l-white',Mesha:'l-red',Vrishabha:'l-white',Mithuna:'l-green',Karka:'l-white',Simha:'l-red',Kanya:'l-green',Tula:'l-white',Vrishchika:'l-red',Dhanu:'l-green',Makara:'l-dark',Kumbha:'l-dark'};
-  const LS = {Meena:'♓',Mesha:'♈',Vrishabha:'♉',Mithuna:'♊',Karka:'♋',Simha:'♌',Kanya:'♍',Tula:'♎',Vrishchika:'♏',Dhanu:'♐',Makara:'♑',Kumbha:'♒'};
-  function toMins(t){if(!t)return 0;const up=t.toUpperCase(),c=up.replace(/[APM\s]/g,'').split(':');let h=+c[0],m=+c[1];if(up.includes('PM')&&h!==12)h+=12;if(up.includes('AM')&&h===12)h=0;return h*60+m;}
-  const pRows=[
-    ['Sunrise',panchang.sunrise,''],['Sunset',panchang.sunset,''],
-    ['Tithi',panchang.tithi,panchang.tithi_upto],
-    ['Nakshatra',panchang.nakshatra,panchang.nakshatra_upto],
-    ['Yoga',panchang.yoga,panchang.yoga_upto],
-    ['Karana',panchang.karana1,panchang.karana1_upto],
-    ['Karana',panchang.karana2,panchang.karana2_upto],
-    ['Paksha',panchang.paksha,''],['Weekday',panchang.weekday,''],
-    ['Amanta Month',panchang.amanta_month,''],
-    ['Purnimanta Month',panchang.purnimanta_month,''],
-    ['Moonsign',panchang.moonsign,''],['Sunsign',panchang.sunsign,''],
-    ['Pravishte / Gate',panchang.pravishte,''],
-  ].filter(r=>r[1]);
-
-  return `<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Panchangam — ${dateInfo.dateDisp}</title>
+<title>Panchangam — Tuesday, April 14, 2026</title>
 <link href="https://fonts.googleapis.com/css2?family=Tiro+Devanagari+Sanskrit&family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
 <style>
   :root{--saffron:#C8540A;--saffron-lt:#E8721A;--gold:#D4A017;--gold-lt:#F2C84B;--cream:#FDF6E8;--cream-dk:#F5E8CC;--brown-dk:#2E1200;--brown-md:#5C2800;--brown-lt:#8B4A1A;--border:rgba(212,160,23,0.3);--red-l:#B22222;--green-l:#2E6B1E;--neutral-l:#7A6040;--dark-l:#2B2B2B;}
@@ -295,58 +99,58 @@ function generateHTML(data, dateInfo) {
       <div class="clk-date" id="liveDate"></div>
     </div>
     <div class="clk-suns">
-      <div class="cs-item"><span class="cs-icon">🌅</span><div class="cs-lbl">Sunrise</div><div class="cs-t">${panchang.sunrise||'--:--'}</div></div>
-      <div class="cs-item"><span class="cs-icon">🌇</span><div class="cs-lbl">Sunset</div><div class="cs-t">${panchang.sunset||'--:--'}</div></div>
+      <div class="cs-item"><span class="cs-icon">🌅</span><div class="cs-lbl">Sunrise</div><div class="cs-t">06:01 AM</div></div>
+      <div class="cs-item"><span class="cs-icon">🌇</span><div class="cs-lbl">Sunset</div><div class="cs-t">06:32 PM</div></div>
     </div>
   </div>
   <div class="date-strip">
     <div class="ds-l">
-      <span class="ds-moon">${(panchang.paksha||'').toLowerCase().includes('krishna')?'🌗':'🌓'}</span>
+      <span class="ds-moon">🌗</span>
       <div>
-        <div class="ds-t1">${panchang.amanta_month||''}</div>
-        <div class="ds-t2">${panchang.paksha_full||''}</div>
-        <div class="ds-t2">${panchang.vikram_samvat?panchang.vikram_samvat+' · Vikrama Samvata':''}</div>
+        <div class="ds-t1">Chaitra</div>
+        <div class="ds-t2">Krishna Paksha, Dwadashi</div>
+        <div class="ds-t2">2083 · Vikrama Samvata</div>
       </div>
     </div>
     <div class="ds-r">
-      <div class="ds-num">${panchang.day_number||dateInfo.day}</div>
-      <div class="ds-mo">${panchang.month_year||''}</div>
-      <div class="ds-wd">${panchang.weekday_en||''}</div>
+      <div class="ds-num">14</div>
+      <div class="ds-mo">April 2026</div>
+      <div class="ds-wd">Tuesday</div>
     </div>
   </div>
   <div class="body">
     <div class="sec-head">🪔 Panchang Details — Hyderabad</div>
     <table class="pt">
-      ${pRows.map(([k,v,u])=>`<tr><td class="k">${k}</td><td class="v">${v}${u?`<span class="u">upto ${u}</span>`:''}</td></tr>`).join('')}
+      <tr><td class="k">Sunrise</td><td class="v">06:01 AM</td></tr><tr><td class="k">Sunset</td><td class="v">06:32 PM</td></tr><tr><td class="k">Tithi</td><td class="v">Dwadashi<span class="u">upto 12:12 AM, Apr 15</span></td></tr><tr><td class="k">Nakshatra</td><td class="v">Shatabhisha<span class="u">upto 04:06 PM</span></td></tr><tr><td class="k">Yoga</td><td class="v">Shukla<span class="u">upto 03:40 PM</span></td></tr><tr><td class="k">Karana</td><td class="v">Kaulava<span class="u">upto 12:46 PM</span></td></tr><tr><td class="k">Karana</td><td class="v">Taitila<span class="u">upto 12:12 AM, Apr 15</span></td></tr><tr><td class="k">Paksha</td><td class="v">Krishna Paksha</td></tr><tr><td class="k">Weekday</td><td class="v">Mangalawara</td></tr><tr><td class="k">Amanta Month</td><td class="v">Chaitra</td></tr><tr><td class="k">Purnimanta Month</td><td class="v">Vaishakha</td></tr><tr><td class="k">Moonsign</td><td class="v">Kumbha</td></tr><tr><td class="k">Sunsign</td><td class="v">Meena upto 09:39 AM, then Mesha</td></tr><tr><td class="k">Pravishte / Gate</td><td class="v">31</td></tr>
     </table>
     <div class="samvat-row">
-      <div class="s-box"><div class="s-lbl">Shaka Samvat</div><div class="s-num">${panchang.shaka_year||''}</div><div class="s-name">${panchang.shaka_name||''}</div></div>
-      <div class="s-box"><div class="s-lbl">Vikram Samvat</div><div class="s-num">${panchang.vikram_year||''}</div><div class="s-name">${panchang.vikram_name||''}</div></div>
-      <div class="s-box"><div class="s-lbl">Gujarati Samvat</div><div class="s-num">${panchang.gujarati_year||''}</div><div class="s-name">${panchang.gujarati_name||''}</div></div>
+      <div class="s-box"><div class="s-lbl">Shaka Samvat</div><div class="s-num">1948</div><div class="s-name">Parabhava</div></div>
+      <div class="s-box"><div class="s-lbl">Vikram Samvat</div><div class="s-num">2083</div><div class="s-name">Siddharthi</div></div>
+      <div class="s-box"><div class="s-lbl">Gujarati Samvat</div><div class="s-num">2082</div><div class="s-name">Pingala</div></div>
     </div>
-    <div class="sec-head">🔮 Rashifal — ${dateInfo.dateDisp}</div>
+    <div class="sec-head">🔮 Rashifal — Tuesday, April 14, 2026</div>
     <div class="rashi-grid">
-      ${rashifal.map(r=>`<div class="rashi-card"><span class="r-emoji">${RE[r.name]||'🌟'}</span><div><div class="r-name">${r.name}</div><div class="r-text">${r.prediction}</div></div></div>`).join('')}
+      <div class="rashi-card"><span class="r-emoji">♈</span><div><div class="r-name">Mesha</div><div class="r-text">Mars energy flows strongly today, bringing courage and determination to your endeavors. Focus on completing pending work projects and avoid impulsive decisions in family matters - patience will serve you better. Offer red flowers to Hanuman ji for strength and protection in all your ventures.</div></div></div><div class="rashi-card"><span class="r-emoji">♉</span><div><div class="r-name">Vrishabha</div><div class="r-text">Steady progress awaits you as Shatabhisha nakshatra supports your practical nature. Financial discussions may prove fruitful, but take care of your throat and voice today. Chant Om Namah Shivaya while focusing on long-term stability rather than quick gains.</div></div></div><div class="rashi-card"><span class="r-emoji">♊</span><div><div class="r-name">Mithuna</div><div class="r-text">Communication planet Mercury brings mixed signals today, requiring careful listening in relationships. Avoid signing important documents and focus on nurturing family bonds through understanding. Light a lamp before Ganesha and seek clarity in all your interactions and decisions.</div></div></div><div class="rashi-card"><span class="r-emoji">♋</span><div><div class="r-name">Karka</div><div class="r-text">Emotional waters run deep today, bringing both intuitive insights and some inner restlessness. Home and family matters need gentle handling, while health requires attention to digestive issues. Pray to Divine Mother for emotional balance and offer white flowers for peace.</div></div></div><div class="rashi-card"><span class="r-emoji">♌</span><div><div class="r-name">Simha</div><div class="r-text">Your natural leadership shines bright, but ego conflicts may arise in professional settings. Channel your creative energy into productive work and be generous with praise for others. Seek Lord Surya's blessings at sunrise for confidence tempered with humility.</div></div></div><div class="rashi-card"><span class="r-emoji">♍</span><div><div class="r-name">Kanya</div><div class="r-text">Analytical skills serve you well today, helping solve complex problems with methodical approach. Health and daily routines need attention - small improvements will yield big results. Worship Goddess Lakshmi with tulsi leaves for prosperity through dedicated service.</div></div></div><div class="rashi-card"><span class="r-emoji">♎</span><div><div class="r-name">Tula</div><div class="r-text">Balance and harmony are your guides today, though relationships may require diplomatic handling. Business partnerships show promise, but avoid making hasty commitments in love matters. Offer jasmine flowers to Venus and seek divine grace for peaceful resolutions.</div></div></div><div class="rashi-card"><span class="r-emoji">♏</span><div><div class="r-name">Vrishchika</div><div class="r-text">Deep transformative energy stirs within you, bringing opportunities for positive change and renewal. Trust your intuition in financial matters while being cautious about hidden opponents or obstacles. Meditate before Lord Shiva for inner strength and spiritual transformation.</div></div></div><div class="rashi-card"><span class="r-emoji">♐</span><div><div class="r-name">Dhanu</div><div class="r-text">Jupiter's wisdom illuminates your path, bringing opportunities for learning and spiritual growth today. Travel plans may face minor delays, but educational pursuits will flourish remarkably well. Visit your local temple and seek Guru's blessings for expanded knowledge and understanding.</div></div></div><div class="rashi-card"><span class="r-emoji">♑</span><div><div class="r-name">Makara</div><div class="r-text">Saturn's steady influence demands discipline and hard work, but rewards await your patient efforts. Career matters require practical approach while family responsibilities increase slightly today. Pray to Lord Venkateshwara for perseverance and long-term success through righteous actions.</div></div></div><div class="rashi-card"><span class="r-emoji">♒</span><div><div class="r-name">Kumbha</div><div class="r-text">Your own nakshatra Shatabhisha brings healing energy and innovative solutions to current challenges. Social connections prove beneficial, but maintain boundaries in friendships and avoid overcommitting your time. Offer water to Shani dev for wisdom in serving humanity.</div></div></div><div class="rashi-card"><span class="r-emoji">♓</span><div><div class="r-name">Meena</div><div class="r-text">Intuitive powers peak today, helping you navigate emotional currents in relationships with remarkable sensitivity. Creative projects flourish, but avoid escapist tendencies when facing practical responsibilities and duties. Chant Om Namo Narayanaya for divine guidance and inner peace.</div></div></div>
     </div>
-    ${(panchang.tarabalam_good_nakshatras && panchang.tarabalam_good_nakshatras.filter(n=>n).length > 0) ? `
-    <div class="sec-head">🌟 Good Tarabalam — Hyderabad · ${dateInfo.dateDisp}</div>
+    
+    <div class="sec-head">🌟 Good Tarabalam — Hyderabad · Tuesday, April 14, 2026</div>
     <div style="background:var(--cream);padding:14px 20px;border-bottom:2px solid var(--gold);">
       <div style="background:#E8F5E9;border:1px solid #2E6B1E;border-radius:10px;padding:14px;margin-bottom:12px;">
-        <div style="font-family:'Cinzel',serif;font-size:.7rem;color:#2E6B1E;letter-spacing:2px;margin-bottom:10px;">✅ GOOD TARABALAM TILL ${panchang.tarabalam_till_time||'evening'} FOR:</div>
+        <div style="font-family:'Cinzel',serif;font-size:.7rem;color:#2E6B1E;letter-spacing:2px;margin-bottom:10px;">✅ GOOD TARABALAM TILL 04:06 PM FOR:</div>
         <div style="display:flex;flex-wrap:wrap;gap:8px;">
-          ${(panchang.tarabalam_good_nakshatras||[]).filter(n=>n).map(n=>`<span style="background:#2E6B1E;color:#fff;padding:4px 12px;border-radius:20px;font-family:'Cinzel',serif;font-size:.72rem;">${n}</span>`).join('')}
+          <span style="background:#2E6B1E;color:#fff;padding:4px 12px;border-radius:20px;font-family:'Cinzel',serif;font-size:.72rem;">Ashwini</span><span style="background:#2E6B1E;color:#fff;padding:4px 12px;border-radius:20px;font-family:'Cinzel',serif;font-size:.72rem;">Krittika</span><span style="background:#2E6B1E;color:#fff;padding:4px 12px;border-radius:20px;font-family:'Cinzel',serif;font-size:.72rem;">Mrigashira</span><span style="background:#2E6B1E;color:#fff;padding:4px 12px;border-radius:20px;font-family:'Cinzel',serif;font-size:.72rem;">Punarvasu</span><span style="background:#2E6B1E;color:#fff;padding:4px 12px;border-radius:20px;font-family:'Cinzel',serif;font-size:.72rem;">Pushya</span><span style="background:#2E6B1E;color:#fff;padding:4px 12px;border-radius:20px;font-family:'Cinzel',serif;font-size:.72rem;">Magha</span><span style="background:#2E6B1E;color:#fff;padding:4px 12px;border-radius:20px;font-family:'Cinzel',serif;font-size:.72rem;">Uttara Phalguni</span><span style="background:#2E6B1E;color:#fff;padding:4px 12px;border-radius:20px;font-family:'Cinzel',serif;font-size:.72rem;">Chitra</span><span style="background:#2E6B1E;color:#fff;padding:4px 12px;border-radius:20px;font-family:'Cinzel',serif;font-size:.72rem;">Vishakha</span><span style="background:#2E6B1E;color:#fff;padding:4px 12px;border-radius:20px;font-family:'Cinzel',serif;font-size:.72rem;">Anuradha</span><span style="background:#2E6B1E;color:#fff;padding:4px 12px;border-radius:20px;font-family:'Cinzel',serif;font-size:.72rem;">Mula</span><span style="background:#2E6B1E;color:#fff;padding:4px 12px;border-radius:20px;font-family:'Cinzel',serif;font-size:.72rem;">Uttara Ashadha</span><span style="background:#2E6B1E;color:#fff;padding:4px 12px;border-radius:20px;font-family:'Cinzel',serif;font-size:.72rem;">Dhanishtha</span><span style="background:#2E6B1E;color:#fff;padding:4px 12px;border-radius:20px;font-family:'Cinzel',serif;font-size:.72rem;">Purva Bhadrapada</span><span style="background:#2E6B1E;color:#fff;padding:4px 12px;border-radius:20px;font-family:'Cinzel',serif;font-size:.72rem;">Uttara Bhadrapada</span>
         </div>
       </div>
-      ${(panchang.tarabalam_good_next_sunrise && panchang.tarabalam_good_next_sunrise.filter(n=>n).length > 0) ? `
+      
       <div style="background:#E8F5E9;border:1px solid #2E6B1E;border-radius:10px;padding:14px;">
         <div style="font-family:'Cinzel',serif;font-size:.7rem;color:#2E6B1E;letter-spacing:2px;margin-bottom:10px;">✅ GOOD TARABALAM TILL NEXT DAY SUNRISE FOR:</div>
         <div style="display:flex;flex-wrap:wrap;gap:8px;">
-          ${(panchang.tarabalam_good_next_sunrise||[]).filter(n=>n).map(n=>`<span style="background:#2E6B1E;color:#fff;padding:4px 12px;border-radius:20px;font-family:'Cinzel',serif;font-size:.72rem;">${n}</span>`).join('')}
+          <span style="background:#2E6B1E;color:#fff;padding:4px 12px;border-radius:20px;font-family:'Cinzel',serif;font-size:.72rem;">Bharani</span><span style="background:#2E6B1E;color:#fff;padding:4px 12px;border-radius:20px;font-family:'Cinzel',serif;font-size:.72rem;">Rohini</span><span style="background:#2E6B1E;color:#fff;padding:4px 12px;border-radius:20px;font-family:'Cinzel',serif;font-size:.72rem;">Ardra</span><span style="background:#2E6B1E;color:#fff;padding:4px 12px;border-radius:20px;font-family:'Cinzel',serif;font-size:.72rem;">Pushya</span><span style="background:#2E6B1E;color:#fff;padding:4px 12px;border-radius:20px;font-family:'Cinzel',serif;font-size:.72rem;">Ashlesha</span><span style="background:#2E6B1E;color:#fff;padding:4px 12px;border-radius:20px;font-family:'Cinzel',serif;font-size:.72rem;">Purva Phalguni</span><span style="background:#2E6B1E;color:#fff;padding:4px 12px;border-radius:20px;font-family:'Cinzel',serif;font-size:.72rem;">Hasta</span><span style="background:#2E6B1E;color:#fff;padding:4px 12px;border-radius:20px;font-family:'Cinzel',serif;font-size:.72rem;">Swati</span><span style="background:#2E6B1E;color:#fff;padding:4px 12px;border-radius:20px;font-family:'Cinzel',serif;font-size:.72rem;">Anuradha</span><span style="background:#2E6B1E;color:#fff;padding:4px 12px;border-radius:20px;font-family:'Cinzel',serif;font-size:.72rem;">Jyeshtha</span><span style="background:#2E6B1E;color:#fff;padding:4px 12px;border-radius:20px;font-family:'Cinzel',serif;font-size:.72rem;">Purva Ashadha</span><span style="background:#2E6B1E;color:#fff;padding:4px 12px;border-radius:20px;font-family:'Cinzel',serif;font-size:.72rem;">Shravana</span><span style="background:#2E6B1E;color:#fff;padding:4px 12px;border-radius:20px;font-family:'Cinzel',serif;font-size:.72rem;">Shatabhisha</span><span style="background:#2E6B1E;color:#fff;padding:4px 12px;border-radius:20px;font-family:'Cinzel',serif;font-size:.72rem;">Uttara Bhadrapada</span><span style="background:#2E6B1E;color:#fff;padding:4px 12px;border-radius:20px;font-family:'Cinzel',serif;font-size:.72rem;">Revati</span>
         </div>
-      </div>` : ''}
-    </div>` : ''}
+      </div>
+    </div>
 
-    <div class="sec-head">⭐ Lagna Table — Hyderabad · ${dateInfo.dateDisp}</div>
+    <div class="sec-head">⭐ Lagna Table — Hyderabad · Tuesday, April 14, 2026</div>
     <div class="lagna-legend">
       <span class="ll-title">LEGEND:</span>
       <span class="ll-item"><span class="ll-dot" style="background:var(--red-l)"></span>Unfavourable</span>
@@ -357,16 +161,49 @@ function generateHTML(data, dateInfo) {
     <table class="lt">
       <thead><tr><th>Lagna Rashi</th><th>Lagna Time</th></tr></thead>
       <tbody id="lagnaTableBody">
-        ${lagna.map(l=>`<tr data-s="${toMins(l.start_time)}" data-e="${toMins(l.end_time)}">
-          <td><span class="l-badge ${LC[l.name]||'l-white'}">${LS[l.name]||''} ${l.name}</span></td>
-          <td><span class="l-time">${l.start_time} to ${l.end_time}${l.next_day?', '+dateInfo.nextDay:''}</span>${l.pushkara?`<span class="l-push">Pushkara Navamsha – ${l.pushkara}</span>`:''}</td>
-        </tr>`).join('')}
+        <tr data-s="268" data-e="364">
+          <td><span class="l-badge l-white">♓ Meena</span></td>
+          <td><span class="l-time">04:28 AM to 06:04 AM</span><span class="l-push">Pushkara Navamsha – 04:51 AM</span></td>
+        </tr><tr data-s="364" data-e="469">
+          <td><span class="l-badge l-red">♈ Mesha</span></td>
+          <td><span class="l-time">06:04 AM to 07:49 AM</span><span class="l-push">Pushkara Navamsha – 07:16 AM</span></td>
+        </tr><tr data-s="469" data-e="590">
+          <td><span class="l-badge l-white">♉ Vrishabha</span></td>
+          <td><span class="l-time">07:49 AM to 09:50 AM</span><span class="l-push">Pushkara Navamsha – 08:43 AM</span></td>
+        </tr><tr data-s="590" data-e="722">
+          <td><span class="l-badge l-green">♊ Mithuna</span></td>
+          <td><span class="l-time">09:50 AM to 12:02 PM</span><span class="l-push">Pushkara Navamsha – 11:35 AM</span></td>
+        </tr><tr data-s="722" data-e="854">
+          <td><span class="l-badge l-white">♋ Karka</span></td>
+          <td><span class="l-time">12:02 PM to 02:14 PM</span><span class="l-push">Pushkara Navamsha – 12:33 PM</span></td>
+        </tr><tr data-s="854" data-e="981">
+          <td><span class="l-badge l-red">♌ Simha</span></td>
+          <td><span class="l-time">02:14 PM to 04:21 PM</span><span class="l-push">Pushkara Navamsha – 03:43 PM</span></td>
+        </tr><tr data-s="981" data-e="1106">
+          <td><span class="l-badge l-green">♍ Kanya</span></td>
+          <td><span class="l-time">04:21 PM to 06:26 PM</span><span class="l-push">Pushkara Navamsha – 05:19 PM</span></td>
+        </tr><tr data-s="1106" data-e="1236">
+          <td><span class="l-badge l-white">♎ Tula</span></td>
+          <td><span class="l-time">06:26 PM to 08:36 PM</span><span class="l-push">Pushkara Navamsha – 08:10 PM</span></td>
+        </tr><tr data-s="1236" data-e="1370">
+          <td><span class="l-badge l-red">♏ Vrishchika</span></td>
+          <td><span class="l-time">08:36 PM to 10:50 PM</span><span class="l-push">Pushkara Navamsha – 09:07 PM</span></td>
+        </tr><tr data-s="1370" data-e="NaN">
+          <td><span class="l-badge l-green">♐ Dhanu</span></td>
+          <td><span class="l-time">10:50 PM to 12:56 AM, Apr 15, Apr 15</span><span class="l-push">Pushkara Navamsha – 12:20 AM, Apr 15</span></td>
+        </tr><tr data-s="56" data-e="NaN">
+          <td><span class="l-badge l-dark">♑ Makara</span></td>
+          <td><span class="l-time">12:56 AM to 02:46 AM, Apr 15, Apr 15</span><span class="l-push">Pushkara Navamsha – 01:49 AM, Apr 15</span></td>
+        </tr><tr data-s="166" data-e="NaN">
+          <td><span class="l-badge l-dark">♒ Kumbha</span></td>
+          <td><span class="l-time">02:46 AM to 04:25 AM, Apr 15, Apr 15</span><span class="l-push">Pushkara Navamsha – 04:05 AM, Apr 15</span></td>
+        </tr>
       </tbody>
     </table>
   </div>
   <div class="footer">
     <div class="f-loc">📍 Hyderabad, India &nbsp;|&nbsp; IST +05:30</div>
-    <div class="f-date">${dateInfo.dateDisp}</div>
+    <div class="f-date">Tuesday, April 14, 2026</div>
     <div class="f-src">Source: DrikPanchang.com</div>
   </div>
 </div>
@@ -399,267 +236,4 @@ setTimeout(sendHeight,1000);
 setTimeout(sendHeight,3000);
 </script>
 </body>
-</html>`;
-}
-
-// ── STEP 4: PUSH TO GITHUB ───────────────────────
-async function pushToGitHub(htmlContent, dateInfo) {
-  log('  Pushing to GitHub...');
-
-  // Get current file SHA (needed for update)
-  const getSHA = () => new Promise((resolve) => {
-    const options = {
-      hostname: 'api.github.com',
-      path:     `/repos/${CONFIG.GITHUB_USER}/${CONFIG.GITHUB_REPO}/contents/index.html`,
-      method:   'GET',
-      headers:  {
-        'Authorization': `token ${CONFIG.GITHUB_TOKEN}`,
-        'User-Agent':    'PanchangamBot/1.0',
-        'Accept':        'application/vnd.github.v3+json',
-      },
-    };
-    const req = https.request(options, res => {
-      let data = '';
-      res.on('data', c => data += c);
-      res.on('end', () => {
-        try {
-          const json = JSON.parse(data);
-          resolve(json.sha || null);
-        } catch { resolve(null); }
-      });
-    });
-    req.on('error', () => resolve(null));
-    req.end();
-  });
-
-  // Push file to GitHub
-  const pushFile = (sha) => new Promise((resolve, reject) => {
-    const content = Buffer.from(htmlContent).toString('base64');
-    const body = JSON.stringify({
-      message: `Daily Panchangam update — ${dateInfo.dateDisp}`,
-      content,
-      branch:  CONFIG.GITHUB_BRANCH,
-      ...(sha ? { sha } : {}),
-    });
-
-    const options = {
-      hostname: 'api.github.com',
-      path:     `/repos/${CONFIG.GITHUB_USER}/${CONFIG.GITHUB_REPO}/contents/index.html`,
-      method:   'PUT',
-      headers:  {
-        'Authorization': `token ${CONFIG.GITHUB_TOKEN}`,
-        'User-Agent':    'PanchangamBot/1.0',
-        'Accept':        'application/vnd.github.v3+json',
-        'Content-Type':  'application/json',
-        'Content-Length': Buffer.byteLength(body),
-      },
-    };
-
-    const req = https.request(options, res => {
-      let data = '';
-      res.on('data', c => data += c);
-      res.on('end', () => {
-        if (res.statusCode === 200 || res.statusCode === 201) {
-          log('  ✅ Pushed to GitHub successfully!');
-          log(`  ⏳ Netlify deploying... (30 seconds)`);
-          log(`  🌐 Live at: ${CONFIG.NETLIFY_URL}`);
-          resolve();
-        } else {
-          reject(new Error(`GitHub API ${res.statusCode}: ${data.substring(0,200)}`));
-        }
-      });
-    });
-    req.on('error', reject);
-    req.write(body);
-    req.end();
-  });
-
-  const sha = await getSHA();
-  log(sha ? '  Updating existing file...' : '  Creating new file...');
-  await pushFile(sha);
-}
-
-// ── GENERATE PDF FROM HTML ───────────────────────
-async function generatePDF(htmlFilePath, dateInfo) {
-  log('  Generating PDF from Panchangam HTML...');
-  const browser = await puppeteer.launch({
-    headless: 'new',
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
-  });
-  try {
-    const page = await browser.newPage();
-    const htmlContent = fs.readFileSync(htmlFilePath, 'utf8');
-    await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
-    await new Promise(r => setTimeout(r, 2000)); // let fonts/styles load
-    const pdfPath = path.join(path.dirname(htmlFilePath), `panchangam-${dateInfo.dd}-${dateInfo.mm}-${dateInfo.yyyy}.pdf`);
-    await page.pdf({
-      path: pdfPath,
-      format: 'A4',
-      printBackground: true,
-      margin: { top: '10mm', bottom: '10mm', left: '8mm', right: '8mm' }
-    });
-    log(`  ✅ PDF saved: ${pdfPath}`);
-    return pdfPath;
-  } finally {
-    await browser.close();
-  }
-}
-
-// ── SEND EMAIL WITH PDF ATTACHMENT ───────────────
-async function sendPanchangamEmail(dateInfo, panchang, pdfPath) {
-  log('  Sending 6 AM Panchangam PDF email...');
-
-  const nodemailer = require('nodemailer');
-
-  const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: CONFIG.GMAIL_USER,
-      pass: CONFIG.GMAIL_APP_PASS.replace(/\s/g, ''),
-    },
-  });
-
-  const mailOptions = {
-    from:    CONFIG.GMAIL_USER,
-    to:      CONFIG.GMAIL_TO,
-    subject: `🪔 Daily Panchangam — ${dateInfo.dateDisp} | Voice of Viswanatha`,
-    html: `
-      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#FFF8EC;border:2px solid #C8540A;border-radius:12px;overflow:hidden;">
-        <div style="background:linear-gradient(135deg,#5C1800,#C8540A);padding:24px;text-align:center;">
-          <h1 style="color:#F2C84B;margin:0;font-size:26px;letter-spacing:2px;">ॐ Voice of Viswanatha</h1>
-          <p style="color:rgba(255,255,255,0.85);margin:6px 0 0;font-size:15px;">Daily Panchangam — ${dateInfo.dateDisp}</p>
-        </div>
-        <div style="padding:24px;">
-          <p style="color:#5C2800;font-size:15px;margin:0 0 20px;">🙏 Namaskaram! Please find today's Panchangam attached as a PDF.</p>
-          <div style="background:#FFF3DC;border:1px solid #C8540A;border-radius:10px;padding:18px;margin-bottom:20px;">
-            <h3 style="color:#5C2800;margin:0 0 12px;font-size:15px;">📿 Today's Key Details — Hyderabad</h3>
-            <table style="width:100%;border-collapse:collapse;">
-              <tr style="border-bottom:1px solid rgba(200,84,10,0.2);"><td style="padding:6px 8px;color:#8B4A1A;font-weight:bold;width:40%;">Date</td><td style="padding:6px 8px;color:#C8540A;">${dateInfo.dateDisp}</td></tr>
-              <tr style="border-bottom:1px solid rgba(200,84,10,0.2);"><td style="padding:6px 8px;color:#8B4A1A;font-weight:bold;">Sunrise</td><td style="padding:6px 8px;color:#C8540A;">${panchang.sunrise||'--'}</td></tr>
-              <tr style="border-bottom:1px solid rgba(200,84,10,0.2);"><td style="padding:6px 8px;color:#8B4A1A;font-weight:bold;">Sunset</td><td style="padding:6px 8px;color:#C8540A;">${panchang.sunset||'--'}</td></tr>
-              <tr style="border-bottom:1px solid rgba(200,84,10,0.2);"><td style="padding:6px 8px;color:#8B4A1A;font-weight:bold;">Tithi</td><td style="padding:6px 8px;color:#C8540A;">${panchang.tithi||'--'}</td></tr>
-              <tr style="border-bottom:1px solid rgba(200,84,10,0.2);"><td style="padding:6px 8px;color:#8B4A1A;font-weight:bold;">Nakshatra</td><td style="padding:6px 8px;color:#C8540A;">${panchang.nakshatra||'--'}</td></tr>
-              <tr style="border-bottom:1px solid rgba(200,84,10,0.2);"><td style="padding:6px 8px;color:#8B4A1A;font-weight:bold;">Yoga</td><td style="padding:6px 8px;color:#C8540A;">${panchang.yoga||'--'}</td></tr>
-              <tr><td style="padding:6px 8px;color:#8B4A1A;font-weight:bold;">Paksha</td><td style="padding:6px 8px;color:#C8540A;">${panchang.paksha||'--'}</td></tr>
-            </table>
-          </div>
-          <div style="text-align:center;margin-bottom:20px;">
-            <a href="${CONFIG.WEBSITE_URL}" style="background:#C8540A;color:#fff;padding:12px 32px;border-radius:25px;text-decoration:none;font-size:15px;font-weight:bold;display:inline-block;">🌐 View Online Panchangam</a>
-          </div>
-          <p style="color:#8B4A1A;font-size:13px;text-align:center;margin:0;">శ్రీ విశ్వనాథుని ఆశీర్వాదాలు 🕉️</p>
-        </div>
-        <div style="background:#2E1200;padding:12px;text-align:center;">
-          <p style="color:rgba(255,255,255,0.5);margin:0;font-size:12px;">Voice of Viswanatha · Auto-generated daily at 6:00 AM IST</p>
-        </div>
-      </div>`,
-    attachments: [
-      {
-        filename: `Panchangam-${dateInfo.dateDisp}.pdf`,
-        path: pdfPath,
-        contentType: 'application/pdf'
-      }
-    ]
-  };
-
-  await transporter.sendMail(mailOptions);
-  log('  ✅ PDF email sent to ' + CONFIG.GMAIL_TO);
-}
-
-// ── WAIT UNTIL 6 AM IST ──────────────────────────
-function waitUntil6AM() {
-  return new Promise(resolve => {
-    function check() {
-      const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
-      const h = now.getHours(), m = now.getMinutes();
-      if (h === 6 && m === 0) {
-        resolve();
-      } else if (h > 6 || (h === 6 && m > 0)) {
-        // Already past 6 AM — send immediately
-        resolve();
-      } else {
-        // Calculate ms until 6:00 AM
-        const target = new Date(now);
-        target.setHours(6, 0, 0, 0);
-        const msLeft = target - now;
-        log(`  ⏰ Email will be sent at 6:00 AM IST (${Math.round(msLeft/60000)} minutes from now)`);
-        setTimeout(resolve, msLeft);
-      }
-    }
-    check();
-  });
-}
-async function main() {
-  log('');
-  log('════════════════════════════════════════════');
-  log('🪔  Panchangam Auto-Update Starting...');
-  log('════════════════════════════════════════════');
-
-  const dateInfo = getTodayIST();
-  log(`📅 Date: ${dateInfo.dateDisp}`);
-
-  // Step 1: Fetch DrikPanchang
-  log('\n📥 Step 1: Fetching DrikPanchang pages...');
-  let panchangText, lagnaText;
-  try {
-    [panchangText, lagnaText] = await Promise.all([
-      fetchPage(`https://www.drikpanchang.com/panchang/day-panchang.html?geoname-id=1269843&date=${dateInfo.dateURL}`),
-      fetchPage(`https://www.drikpanchang.com/muhurat/lagna.html?geoname-id=1269843&date=${dateInfo.dateURL}`)
-    ]);
-    log(`  ✅ Pages fetched successfully`);
-  } catch(err) {
-    log(`  ❌ Fetch failed: ${err.message}`); process.exit(1);
-  }
-
-  // Step 2: Extract with Claude
-  log('\n🤖 Step 2: Extracting data with Claude AI...');
-  let data;
-  try {
-    data = await extractData(panchangText, lagnaText, dateInfo);
-    log(`  ✅ Sunrise: ${data.panchang.sunrise} | Tithi: ${data.panchang.tithi} | Nakshatra: ${data.panchang.nakshatra}`);
-  } catch(err) {
-    log(`  ❌ Extraction failed: ${err.message}`); process.exit(1);
-  }
-
-  // Step 3: Generate HTML
-  log('\n🎨 Step 3: Generating HTML...');
-  let html;
-  try {
-    html = generateHTML(data, dateInfo);
-    fs.writeFileSync(CONFIG.LOCAL_HTML, html, 'utf8');
-    log(`  ✅ HTML generated`);
-  } catch(err) {
-    log(`  ❌ HTML failed: ${err.message}`); process.exit(1);
-  }
-
-  // Step 4: Push to GitHub → Netlify auto-deploys
-  log('\n🚀 Step 4: Pushing to GitHub → Netlify...');
-  try {
-    await pushToGitHub(html, dateInfo);
-  } catch(err) {
-    log(`  ❌ GitHub push failed: ${err.message}`); process.exit(1);
-  }
-
-  log('');
-  log('════════════════════════════════════════════');
-  log('✅ ALL DONE! Website will update in ~30 sec');
-  log(`🌐 Netlify: https://mellifluous-cobbler-8ae57f.netlify.app`);
-  log(`🌐 Website: ${CONFIG.WEBSITE_URL}`);
-  log('════════════════════════════════════════════');
-  log('');
-
-  // Step 5: Wait until 6 AM then generate PDF and email it
-  log('\n📧 Step 5: Waiting until 6 AM IST to send Panchangam PDF...');
-  await waitUntil6AM();
-  try {
-    const pdfPath = await generatePDF(CONFIG.LOCAL_HTML, dateInfo);
-    await sendPanchangamEmail(dateInfo, data.panchang, pdfPath);
-  } catch(err) {
-    log(`  ❌ Email failed: ${err.message}`);
-    log('  💡 Check Gmail App Password in CONFIG');
-  }
-}
-
-main().catch(err => {
-  log(`❌ Fatal: ${err.message}`);
-  process.exit(1);
-});
+</html>
