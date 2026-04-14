@@ -1,6 +1,6 @@
 name: Daily Panchangam
 
-on:
+ on:
   schedule:
     - cron: '30 18 * * *'
   workflow_dispatch:
@@ -27,3 +27,4 @@ jobs:
           GITHUB_TOKEN_SECRET: ${{ secrets.GITHUB_TOKEN_SECRET }}
           GMAIL_APP_PASS: ${{ secrets.GMAIL_APP_PASS }}
         run: node auto-panchang.js
+       
