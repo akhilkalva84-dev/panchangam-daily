@@ -2,8 +2,8 @@ name: Daily Panchangam
 
 on:
   schedule:
-    - cron: '30 18 * * *'  # midnight IST = 6:30 PM UTC
-  workflow_dispatch:        # manual trigger button
+    - cron: '30 18 * * *'
+  workflow_dispatch:
 
 jobs:
   run:
