@@ -1,0 +1,1 @@
+{"name":"astrology-api-demo","version":"1.0.0","description":"Auto Panchangam updater","main":"auto-panchang.js","scripts":{"start":"node auto-panchang.js"},"dependencies":{"@anthropic-ai/sdk":"^0.24.0","nodemailer":"^8.0.5","puppeteer":"^24.0.0"}}
