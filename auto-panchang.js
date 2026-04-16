@@ -168,8 +168,19 @@ Return ONLY this JSON (no markdown, no backticks):
     }]
   });
   const rRaw   = rashiResp.content[0].text.trim();
-  const rClean = rRaw.replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/, '').trim();
-  data.rashifal = JSON.parse(rClean);
+  let rClean = rRaw.replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/, '').trim();
+  // Extract JSON array from response robustly
+  const rMatch = rClean.match(/\[\s*\{[\s\S]*\}\s*\]/);
+  if (rMatch) rClean = rMatch[0];
+  try {
+    data.rashifal = JSON.parse(rClean);
+  } catch(e) {
+    log('  ⚠️ Rashifal JSON failed, using default predictions');
+    data.rashifal = [
+      "Mesha","Vrishabha","Mithuna","Karka","Simha","Kanya",
+      "Tula","Vrishchika","Dhanu","Makara","Kumbha","Meena"
+    ].map(name => ({ name, prediction: "Seek blessings of Lord Viswanatha today. Focus on family and work with dedication. A positive day ahead." }));
+  }
   return data;
 }
 
