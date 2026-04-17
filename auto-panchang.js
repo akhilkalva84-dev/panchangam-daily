@@ -155,18 +155,21 @@ Return ONLY this JSON (fill real values):
 
   // Generate VOV-style Rashifal with dedicated Claude call
   log('  Generating VOV Rashifal predictions...');
-  const rashiResp = await anthropic.messages.create({
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 2500,
-    system: 'You are an experienced Hindu astrologer writing for Voice of Viswanatha — a devotional Telugu astrology channel. Write Rashifal (daily horoscope) predictions in a warm, spiritual, encouraging tone. 2-3 sentences each covering: dominant energy, practical guidance (career/family/health), and a brief devotional note. Write in simple English with Telugu cultural warmth. Be positive but realistic.',
-    messages: [{
-      role: 'user',
-      content: `Write daily Rashifal predictions for ${dateInfo.dateDisp}.
-Panchang context — Tithi: ${data.panchang.tithi||''}, Nakshatra: ${data.panchang.nakshatra||''}, Yoga: ${data.panchang.yoga||''}, Paksha: ${data.panchang.paksha||''}, Weekday: ${data.panchang.weekday_en||''}.
-Return ONLY this JSON (no markdown, no backticks):
-[{"name":"Mesha","prediction":""},{"name":"Vrishabha","prediction":""},{"name":"Mithuna","prediction":""},{"name":"Karka","prediction":""},{"name":"Simha","prediction":""},{"name":"Kanya","prediction":""},{"name":"Tula","prediction":""},{"name":"Vrishchika","prediction":""},{"name":"Dhanu","prediction":""},{"name":"Makara","prediction":""},{"name":"Kumbha","prediction":""},{"name":"Meena","prediction":""}]`
-    }]
-  });
+  const RASHIS = ["Mesha","Vrishabha","Mithuna","Karka","Simha","Kanya","Tula","Vrishchika","Dhanu","Makara","Kumbha","Meena"];
+  const rashiPredictions = [];
+  for (const rashi of RASHIS) {
+    const r = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 200,
+      system: 'You are a Vedic astrologer. Write a 2-3 sentence daily horoscope prediction in simple practical English. Cover career, health, family or finance. Be specific and useful. No religious advice, no worship suggestions, no god references — just practical guidance like DrikPanchang style.',
+      messages: [{
+        role: 'user',
+        content: `Write today's horoscope for ${rashi} rashi. Date: ${dateInfo.dateDisp}. Tithi: ${data.panchang.tithi||''}, Nakshatra: ${data.panchang.nakshatra||''}. Just plain text, no formatting.`
+      }]
+    });
+    rashiPredictions.push({ name: rashi, prediction: r.content[0].text.trim() });
+  }
+  const rashiResp = { content: [{ text: JSON.stringify(rashiPredictions) }] };
   const rRaw   = rashiResp.content[0].text.trim();
   let rClean = rRaw.replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/, '').trim();
   // Extract JSON array from response robustly
