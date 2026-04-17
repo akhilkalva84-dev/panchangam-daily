@@ -1,17 +1,22 @@
 name: Daily Panchangam
 
- on:
+on:
   schedule:
     - cron: '30 18 * * *'
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   run:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v3
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
           node-version: '18'
 
@@ -24,7 +29,6 @@ jobs:
       - name: Run Panchangam script
         env:
           CLAUDE_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
-          GITHUB_TOKEN_SECRET: ${{ secrets.GITHUB_TOKEN_SECRET }}
+          GITHUB_TOKEN_SECRET: ${{ secrets.GITHUB_TOKEN }}
           GMAIL_APP_PASS: ${{ secrets.GMAIL_APP_PASS }}
         run: node auto-panchang.js
-       
