@@ -92,7 +92,7 @@ async function fetchPage(url) {
 async function extractData(panchangText, lagnaText, dateInfo) {
   log('  Sending to Claude AI...');
   const response = await anthropic.messages.create({
-    model:      'claude-sonnet-4-20250514',
+    model:      'claude-sonnet-4-6',
     max_tokens: 4000,
     system:     'You are a Panchangam data extractor. Extract data from raw website text scraped from DrikPanchang.com for Hyderabad India. Return ONLY valid JSON — no markdown, no explanation.',
     messages: [{
@@ -159,7 +159,7 @@ Return ONLY this JSON (fill real values):
   const rashiPredictions = [];
   for (const rashi of RASHIS) {
     const r = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       max_tokens: 200,
       system: 'You are a Vedic astrologer. Write a 2-3 sentence daily horoscope prediction in simple practical English. Cover career, health, family or finance. Be specific and useful. No religious advice, no worship suggestions, no god references — just practical guidance like DrikPanchang style.',
       messages: [{
